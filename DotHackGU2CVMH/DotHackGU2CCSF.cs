@@ -743,7 +743,7 @@ namespace DotHackGU2CVMH
                                 float UnknownFloatB = BitConverter.ToSingle(buffer, 0);
                                 Console.WriteLine("UnknownFloat: {0,8:X8} {1}", UnknownFloatA, UnknownFloatB.ToString("R", CultureInfo.InvariantCulture));
 
-                                if (Unknown1 != 0)
+                                //if (Unknown1 != 0)
                                 {
                                     if (Unknown5D == 0x80) // shadow
                                     {

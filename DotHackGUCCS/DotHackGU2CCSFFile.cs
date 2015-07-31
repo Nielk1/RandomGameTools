@@ -21,6 +21,8 @@ namespace DotHackGUCCS
             {
                 while (data.Read(buffer, 0, 4) > 0)
                 {
+                    //Console.WriteLine("[{0,8:X8}]", data.Position - 4);
+
                     UInt32 BlockID = BitConverter.ToUInt32(buffer, 0);
 
                     CCSBlock newBlock = CCSBlock.MakeBlock(BlockID, data);
@@ -39,7 +41,7 @@ namespace DotHackGUCCS
         FileNames  = 0xCCCC0002,
         CCCC0003   = 0xCCCC0003,
         CCCC0005   = 0xCCCC0005,
-        CCCC0100   = 0xCCCC0100,
+        Object   = 0xCCCC0100,
         CCCC0101   = 0xCCCC0101,
         CCCC0102   = 0xCCCC0102,
         Material   = 0xCCCC0200,
@@ -57,9 +59,9 @@ namespace DotHackGUCCS
         CCCC0606   = 0xCCCC0606,
         CCCC0608   = 0xCCCC0608,
         CCCC0609   = 0xCCCC0609,
-        CCCC0700   = 0xCCCC0700,
+        Animation   = 0xCCCC0700,
         Mesh       = 0xCCCC0800,
-        CCCC0900   = 0xCCCC0900,
+        Composit   = 0xCCCC0900,
         Hierarchy  = 0xCCCC0A00,
         CCCC0B00   = 0xCCCC0B00,
         CCCC0C00   = 0xCCCC0C00,
@@ -117,9 +119,9 @@ namespace DotHackGUCCS
             {
                 return new CCSCCCC0005Block(data);
             }
-            else if (BlockID == (UInt32)CCSBlockType.CCCC0100)
+            else if (BlockID == (UInt32)CCSBlockType.Object)
             {
-                return new CCSCCCC0100Block(data);
+                return new CCSObjectBlock(data);
             }
             else if (BlockID == (UInt32)CCSBlockType.CCCC0101)
             {
@@ -129,9 +131,9 @@ namespace DotHackGUCCS
             {
                 return new CCSCCCC0102Block(data);
             }
-            else if (BlockID == (UInt32)CCSBlockType.CCCC0900)
+            else if (BlockID == (UInt32)CCSBlockType.Composit)
             {
-                return new CCSCCCC0900Block(data);
+                return new CCSCompositBlock(data);
             }
             else if (BlockID == (UInt32)CCSBlockType.Hierarchy)
             {
@@ -241,9 +243,9 @@ namespace DotHackGUCCS
             {
                 return new CCSCCCC2000Block(data);
             }
-            else if (BlockID == (UInt32)CCSBlockType.CCCC0700)
+            else if (BlockID == (UInt32)CCSBlockType.Animation)
             {
-                return new CCSCCCC0700Block(data);
+                return new CCSAnimationBlock(data);
             }
             else if (BlockID == (UInt32)CCSBlockType.Mesh)
             {
@@ -351,7 +353,7 @@ namespace DotHackGUCCS
             }
         }
 
-        public struct BackedFile
+        public struct BakedFile
         {
             public string Name;
             public UInt16 Value;
@@ -367,10 +369,14 @@ namespace DotHackGUCCS
         private long _BlockSize;
 
         public BaseFile[] BaseFiles { get; private set; }
-        public BackedFile[] BakedFiles { get; private set; }
+        public BakedFile[] BakedFiles { get; private set; }
+
+        //public List<byte> ExtraData;
 
         public CCSFileNamesBlock(Stream data)
         {
+            //ExtraData = new List<byte>();
+
             byte[] buffer = new byte[32];
 
             data.Read(buffer, 0, 4); _BlockSize = BitConverter.ToUInt32(buffer, 0);
@@ -387,14 +393,19 @@ namespace DotHackGUCCS
                 BaseFiles[x] = new BaseFile() { Name = Filename, Prefix = (char)buffer[0] };
             }
 
-            BakedFiles = new BackedFile[Lines2];
+            BakedFiles = new BakedFile[Lines2];
             for (int x = 0; x < Lines2; x++)
             {
                 data.Read(buffer, 0, 30); string Filename = ASCIIEncoding.ASCII.GetString(buffer, 0, 30).TrimEnd('\0');
                 data.Read(buffer, 0, 2); UInt16 BaseFileIndex = BitConverter.ToUInt16(buffer, 0);
 
-                BakedFiles[x] = new BackedFile() { Name = Filename, Value = BaseFileIndex };
+                BakedFiles[x] = new BakedFile() { Name = Filename, Value = BaseFileIndex };
             }
+
+            //while ((data.Position < _BlockSize) && (data.Read(buffer, 0, 1) > 0))
+            //{
+            //    ExtraData.Add(buffer[0]);
+            //}
 
             //data.Seek(nextBlock, SeekOrigin.Begin);
 
@@ -410,6 +421,8 @@ namespace DotHackGUCCS
                 data.Read(buffer, 0, 4); UInt32 ANOMALY2 = BitConverter.ToUInt32(buffer, 0);
                 Console.WriteLine("ANOMALY: {0,8:X8} {1,8:X8}", ANOMALY1, ANOMALY2);
                 Console.WriteLine();
+                //Console.WriteLine("{0} to {1}", locFallback, data.Position);
+                //Console.WriteLine();
             }
             else
             {
@@ -755,8 +768,12 @@ namespace DotHackGUCCS
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
+        public List<byte> ExtraData;
+
         public CCSCCCC0202Block(Stream data)
         {
+            ExtraData = new List<byte>();
+
             byte[] buffer = new byte[4];
 
             //Console.WriteLine("CCCCFF01 Block // unknown");
@@ -769,10 +786,15 @@ namespace DotHackGUCCS
             //data.Read(buffer, 0, 4); UInt32 SelfIndex = BitConverter.ToUInt32(buffer, 0);
             //Console.WriteLine("Node Index: {0}", SelfIndex);
 
-            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //{
+            //    UInt32 raw = BitConverter.ToUInt32(buffer, 0);
+            //    //Console.WriteLine("\t{0,8:X8}", BlockID);
+            //}
+
+            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 1) > 0))
             {
-                UInt32 raw = BitConverter.ToUInt32(buffer, 0);
-                //Console.WriteLine("\t{0,8:X8}", BlockID);
+                ExtraData.Add(buffer[0]);
             }
 
             //Console.WriteLine();
@@ -785,11 +807,15 @@ namespace DotHackGUCCS
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
+        public List<byte> ExtraData;
+
         public CCSCCCC0003Block(Stream data)
         {
+            ExtraData = new List<byte>();
+
             byte[] buffer = new byte[4];
 
-            //Console.WriteLine("CCCCFF01 Block // unknown");
+            //Console.WriteLine("CCCC0003 Block // unknown");
 
             data.Read(buffer, 0, 4); _BlockSize = BitConverter.ToUInt32(buffer, 0);
             //Console.WriteLine("Size of following block data: {0} int32s", _BlockSize);
@@ -799,10 +825,15 @@ namespace DotHackGUCCS
             //data.Read(buffer, 0, 4); UInt32 SelfIndex = BitConverter.ToUInt32(buffer, 0);
             //Console.WriteLine("Node Index: {0}", SelfIndex);
 
-            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //{
+            //    UInt32 raw = BitConverter.ToUInt32(buffer, 0);
+            //    Console.WriteLine("\t{0,8:X8}", raw);
+            //}
+
+            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 1) > 0))
             {
-                UInt32 raw = BitConverter.ToUInt32(buffer, 0);
-                //Console.WriteLine("\t{0,8:X8}", BlockID);
+                ExtraData.Add(buffer[0]);
             }
 
             //Console.WriteLine();
@@ -815,11 +846,15 @@ namespace DotHackGUCCS
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
+        public List<byte> ExtraData;
+
         public CCSCCCC0005Block(Stream data)
         {
+            ExtraData = new List<byte>();
+
             byte[] buffer = new byte[4];
 
-            //Console.WriteLine("CCCCFF01 Block // unknown");
+            //Console.WriteLine("CCCC0005 Block // unknown");
 
             data.Read(buffer, 0, 4); _BlockSize = BitConverter.ToUInt32(buffer, 0);
             //Console.WriteLine("Size of following block data: {0} int32s", _BlockSize);
@@ -829,10 +864,15 @@ namespace DotHackGUCCS
             //data.Read(buffer, 0, 4); UInt32 SelfIndex = BitConverter.ToUInt32(buffer, 0);
             //Console.WriteLine("Node Index: {0}", SelfIndex);
 
-            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //{
+            //    UInt32 raw = BitConverter.ToUInt32(buffer, 0);
+            //    //Console.WriteLine("\t{0,8:X8}", raw);
+            //}
+
+            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 1) > 0))
             {
-                UInt32 raw = BitConverter.ToUInt32(buffer, 0);
-                //Console.WriteLine("\t{0,8:X8}", BlockID);
+                ExtraData.Add(buffer[0]);
             }
 
             //Console.WriteLine();
@@ -899,9 +939,9 @@ namespace DotHackGUCCS
         }
     }
 
-    public class CCSCCCC0100Block : CCSBlock
+    public class CCSObjectBlock : CCSBlock
     {
-        public override CCSBlockType BlockType { get { return CCSBlockType.CCCC0100; } }
+        public override CCSBlockType BlockType { get { return CCSBlockType.Object; } }
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
@@ -910,7 +950,7 @@ namespace DotHackGUCCS
         public UInt32 MDLBakedFileIndex;
         public List<UInt32> RawData = new List<UInt32>();
 
-        public CCSCCCC0100Block(Stream data)
+        public CCSObjectBlock(Stream data)
         {
             byte[] buffer = new byte[4];
 
@@ -937,35 +977,95 @@ namespace DotHackGUCCS
 
             //Console.WriteLine();
         }
+
+        public override string GetNodeName(CCSFileNamesBlock FileNamesBlock)
+        {
+            return FileNamesBlock.BakedFiles[OBJBakedFileIndex].Name;
+        }
     }
     
-    public class CCSCCCC0900Block : CCSBlock
+    public class CCSCompositBlock : CCSBlock
     {
-        public override CCSBlockType BlockType { get { return CCSBlockType.CCCC0900; } }
+        public override CCSBlockType BlockType { get { return CCSBlockType.Composit; } }
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
-        public CCSCCCC0900Block(Stream data)
+        public UInt32 BakedFileIndex;
+        public UInt32 CountSubnodes;
+        public List<UInt32> SubnodeBakedFileIndexs;
+        public List<Matrix> SubnodeDataItems;
+
+        public struct Matrix
         {
+            public float tx;
+            public float ty;
+            public float tz;
+            public float rx;
+            public float ry;
+            public float rz;
+            public float sx;
+            public float sy;
+            public float sz;
+        }
+
+        public List<byte> ExtraData;
+
+        public CCSCompositBlock(Stream data)
+        {
+            ExtraData = new List<byte>();
+
+            SubnodeBakedFileIndexs = new List<UInt32>();
+            SubnodeDataItems = new List<Matrix>();
+
             byte[] buffer = new byte[4];
 
-            //Console.WriteLine("CCCCFF01 Block // unknown");
-
             data.Read(buffer, 0, 4); _BlockSize = BitConverter.ToUInt32(buffer, 0);
-            //Console.WriteLine("Size of following block data: {0} int32s", _BlockSize);
 
             long nextBlock = data.Position + (_BlockSize * 4);// +8;
 
-            //data.Read(buffer, 0, 4); UInt32 SelfIndex = BitConverter.ToUInt32(buffer, 0);
-            //Console.WriteLine("Node Index: {0}", SelfIndex);
+            data.Read(buffer, 0, 4); BakedFileIndex = BitConverter.ToUInt32(buffer, 0);
+            data.Read(buffer, 0, 4); CountSubnodes = BitConverter.ToUInt32(buffer, 0);
 
-            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            for (int x = 0; x < CountSubnodes; x++)
             {
-                UInt32 raw = BitConverter.ToUInt32(buffer, 0);
-                //Console.WriteLine("\t{0,8:X8}", BlockID);
+                data.Read(buffer, 0, 4); UInt32 SubnodeBakedFileIndex = BitConverter.ToUInt32(buffer, 0);
+                SubnodeBakedFileIndexs.Add(SubnodeBakedFileIndex);
             }
 
-            //Console.WriteLine();
+            for (int x = 0; x < CountSubnodes; x++)
+            {
+                data.Read(buffer, 0, 4); float tx = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float ty = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float tz = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float rx = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float ry = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float rz = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float sx = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float sy = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float sz = BitConverter.ToSingle(buffer, 0);
+
+                SubnodeDataItems.Add(new Matrix() {
+                    tx = tx,
+                    ty = ty,
+                    tz = tz,
+                    rx = rx,
+                    ry = ry,
+                    rz = rz,
+                    sx = sx,
+                    sy = sy,
+                    sz = sz,
+                });
+            }
+
+            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 1) > 0))
+            {
+                ExtraData.Add(buffer[0]);
+            }
+        }
+
+        public override string GetNodeName(CCSFileNamesBlock FileNamesBlock)
+        {
+            return FileNamesBlock.BakedFiles[BakedFileIndex].Name;
         }
     }
 
@@ -1014,43 +1114,180 @@ namespace DotHackGUCCS
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
+        public UInt32 SelfIndex;
+        public UInt32 Marker;
+
+        public struct DataSet0Item
+        {
+            public float Unknown1;
+            public float Unknown2;
+            public float Unknown3;
+
+            public override string ToString()
+            {
+                return string.Format("{0}\t{1}\t{2}", Unknown1.ToString("0.0"), Unknown2.ToString("0.0"), Unknown3.ToString("0.0"));
+            }
+        }
+
+        public struct DataSet1Item
+        {
+            public UInt32 Unknown1;
+            public float Unknown2;
+            public float Unknown3;
+            public float Unknown4;
+
+            public override string ToString()
+            {
+                return string.Format("{0,8:X8}\t{1}\t{2}\t{3}", Unknown1, Unknown2.ToString("0.0"), Unknown3.ToString("0.0"), Unknown4.ToString("0.0"));
+            }
+        }
+
+        public struct DataSet3Item
+        {
+            public float Unknown1;
+            public float Unknown2;
+            public float Unknown3;
+
+            public override string ToString()
+            {
+                return string.Format("{0}\t{1}\t{2}", Unknown1.ToString("0.0"), Unknown2.ToString("0.0"), Unknown3.ToString("0.0"));
+            }
+        }
+
+        public struct DataSet4Item
+        {
+            public UInt32 Unknown1;
+            public float Unknown2;
+            public float Unknown3;
+            public float Unknown4;
+
+            public override string ToString()
+            {
+                return string.Format("{0,8:X8}\t{1}\t{2}\t{3}", Unknown1, Unknown2.ToString("0.0"), Unknown3.ToString("0.0"), Unknown4.ToString("0.0"));
+            }
+        }
+
+        public struct DataSet5Item
+        {
+            public UInt32 Unknown1;
+            public UInt32 Unknown2;
+            public UInt32 Unknown3;
+            public UInt32 Unknown4;
+            public UInt32 Unknown5;
+
+            public override string ToString()
+            {
+                return string.Format("{0,8:X8}\t{1,8:X8}\t{2,8:X8}\t{3,8:X8}\t{4,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4, Unknown5);
+            }
+        }
+
+        public struct DataSet6Item
+        {
+            public float Unknown1;
+            public float Unknown2;
+            public float Unknown3;
+
+            public override string ToString()
+            {
+                return string.Format("{0}\t{1}\t{2}", Unknown1.ToString("0.0"), Unknown2.ToString("0.0"), Unknown3.ToString("0.0"));
+            }
+        }
+
+        public struct DataSet7Item
+        {
+            public UInt32 Unknown1;
+            public float Unknown2;
+            public float Unknown3;
+            public float Unknown4;
+
+            public override string ToString()
+            {
+                return string.Format("{0,8:X8}\t{1}\t{2}\t{3}", Unknown1, Unknown2.ToString("0.0"), Unknown3.ToString("0.0"), Unknown4.ToString("0.0"));
+            }
+        }
+
+        public struct DataSetAItem
+        {
+            public UInt32 Unknown1;
+            public float Unknown2;
+
+            public override string ToString()
+            {
+                return string.Format("{0,8:X8}\t{1}", Unknown1, Unknown2.ToString("0.0"));
+            }
+        }
+
+        public DataSet0Item? DataSet0;
+        public List<DataSet1Item> DataSet1;
+        //DataSet2
+        public DataSet3Item? DataSet3;
+        public List<DataSet4Item> DataSet4;
+        public List<DataSet5Item> DataSet5;
+        public DataSet6Item? DataSet6;
+        public List<DataSet7Item> DataSet7;
+        //DataSet8
+        public UInt32? DataSet9;
+        public List<DataSetAItem> DataSetA;
+        //DataSetB
+        //DataSetC
+        //DataSetD
+        //DataSetE
+        //DataSetF
+
         public CCSCCCC0102Block(Stream data)
         {
             byte[] buffer = new byte[4];
 
-            Console.WriteLine("CCCC0102 Block // complex data, bitwise toggles");
+            //Console.WriteLine("CCCC0102 Block // complex data, bitwise toggles");
 
             data.Read(buffer, 0, 4); _BlockSize = BitConverter.ToUInt32(buffer, 0);
-            Console.WriteLine("Size: {0} int32s", _BlockSize);
+            //Console.WriteLine("Size: {0} int32s", _BlockSize);
 
-            data.Read(buffer, 0, 4); UInt32 SelfIndex = BitConverter.ToUInt32(buffer, 0);
-            Console.WriteLine("Node Index: {0}", SelfIndex);
+            data.Read(buffer, 0, 4); SelfIndex = BitConverter.ToUInt32(buffer, 0);
+            //Console.WriteLine("Node Index: {0}", SelfIndex);
 
-            data.Read(buffer, 0, 4); UInt32 Marker = BitConverter.ToUInt32(buffer, 0);
-            Console.WriteLine("Marker: {0,8:X8}", Marker);
+            data.Read(buffer, 0, 4); Marker = BitConverter.ToUInt32(buffer, 0);
+            //Console.WriteLine("Marker: {0,8:X8}", Marker);
 
             byte ToggleInputs1 = buffer[0];
             byte ToggleInputs2 = buffer[1];
 
             if ((ToggleInputs1 & b00000001) == b00000001)
             {
-                for (int x = 0; x < 3; x++)
+                //for (int x = 0; x < 3; x++)
+                //{
+                //    data.Read(buffer, 0, 4); UInt32 Unknown = BitConverter.ToUInt32(buffer, 0);
+                //    Console.WriteLine("Unknown0: {0,8:X8}", Unknown);
+                //}
+                data.Read(buffer, 0, 4); float Unknown1 = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float Unknown2 = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float Unknown3 = BitConverter.ToSingle(buffer, 0);
+                DataSet0 = new DataSet0Item()
                 {
-                    data.Read(buffer, 0, 4); UInt32 Unknown = BitConverter.ToUInt32(buffer, 0);
-                    Console.WriteLine("Unknown0: {0,8:X8}", Unknown);
-                }
+                    Unknown1 = Unknown1,
+                    Unknown2 = Unknown2,
+                    Unknown3 = Unknown3
+                };
             }
             if ((ToggleInputs1 & b00000010) == b00000010)
             {
+                DataSet1 = new List<DataSet1Item>();
+
                 data.Read(buffer, 0, 4); UInt32 Counter = BitConverter.ToUInt32(buffer, 0);
-                Console.WriteLine("Count1: {0}", Counter);
+                //Console.WriteLine("Count1: {0}", Counter);
                 for (int x = 0; x < Counter; x++)
                 {
                     data.Read(buffer, 0, 4); UInt32 Unknown1 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown2 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown3 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown4 = BitConverter.ToUInt32(buffer, 0);
-                    Console.WriteLine("Unknown1: {0,8:X8} {1,8:X8} {2,8:X8} {3,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4);
+                    data.Read(buffer, 0, 4); float Unknown2 = BitConverter.ToSingle(buffer, 0);
+                    data.Read(buffer, 0, 4); float Unknown3 = BitConverter.ToSingle(buffer, 0);
+                    data.Read(buffer, 0, 4); float Unknown4 = BitConverter.ToSingle(buffer, 0);
+                    //Console.WriteLine("Unknown1: {0,8:X8} {1,8:X8} {2,8:X8} {3,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4);
+                    DataSet1.Add(new DataSet1Item() {
+                        Unknown1 = Unknown1,
+                        Unknown2 = Unknown2,
+                        Unknown3 = Unknown3,
+                        Unknown4 = Unknown4
+                    });
                 }
             }
             if ((ToggleInputs1 & b00000100) == b00000100)
@@ -1059,29 +1296,49 @@ namespace DotHackGUCCS
             }
             if ((ToggleInputs1 & b00001000) == b00001000)
             {
-                for (int x = 0; x < 3; x++)
+                //for (int x = 0; x < 3; x++)
+                //{
+                //    data.Read(buffer, 0, 4); UInt32 Unknown = BitConverter.ToUInt32(buffer, 0);
+                //    Console.WriteLine("Unknown3: {0,8:X8}", Unknown);
+                //}
+                data.Read(buffer, 0, 4); float Unknown1 = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float Unknown2 = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float Unknown3 = BitConverter.ToSingle(buffer, 0);
+                DataSet3 = new DataSet3Item()
                 {
-                    data.Read(buffer, 0, 4); UInt32 Unknown = BitConverter.ToUInt32(buffer, 0);
-                    Console.WriteLine("Unknown3: {0,8:X8}", Unknown);
-                }
+                    Unknown1 = Unknown1,
+                    Unknown2 = Unknown2,
+                    Unknown3 = Unknown3
+                };
             }
             if ((ToggleInputs1 & b00010000) == b00010000)
             {
+                DataSet4 = new List<DataSet4Item>();
+
                 data.Read(buffer, 0, 4); UInt32 Counter = BitConverter.ToUInt32(buffer, 0);
-                Console.WriteLine("Count4: {0}", Counter);
+                //Console.WriteLine("Count4: {0}", Counter);
                 for (int x = 0; x < Counter; x++)
                 {
                     data.Read(buffer, 0, 4); UInt32 Unknown1 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown2 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown3 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown4 = BitConverter.ToUInt32(buffer, 0);
-                    Console.WriteLine("Unknown4: {0,8:X8} {1,8:X8} {2,8:X8} {3,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4);
+                    data.Read(buffer, 0, 4); float Unknown2 = BitConverter.ToSingle(buffer, 0);
+                    data.Read(buffer, 0, 4); float Unknown3 = BitConverter.ToSingle(buffer, 0);
+                    data.Read(buffer, 0, 4); float Unknown4 = BitConverter.ToSingle(buffer, 0);
+                    //Console.WriteLine("Unknown4: {0,8:X8} {1,8:X8} {2,8:X8} {3,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4);
+                    DataSet4.Add(new DataSet4Item()
+                    {
+                        Unknown1 = Unknown1,
+                        Unknown2 = Unknown2,
+                        Unknown3 = Unknown3,
+                        Unknown4 = Unknown4
+                    });
                 }
             }
             if ((ToggleInputs1 & b00100000) == b00100000)
             {
+                DataSet5 = new List<DataSet5Item>();
+
                 data.Read(buffer, 0, 4); UInt32 Counter = BitConverter.ToUInt32(buffer, 0);
-                Console.WriteLine("Count5: {0}", Counter);
+                //Console.WriteLine("Count5: {0}", Counter);
                 for (int x = 0; x < Counter; x++)
                 {
                     data.Read(buffer, 0, 4); UInt32 Unknown1 = BitConverter.ToUInt32(buffer, 0);
@@ -1089,28 +1346,54 @@ namespace DotHackGUCCS
                     data.Read(buffer, 0, 4); UInt32 Unknown3 = BitConverter.ToUInt32(buffer, 0);
                     data.Read(buffer, 0, 4); UInt32 Unknown4 = BitConverter.ToUInt32(buffer, 0);
                     data.Read(buffer, 0, 4); UInt32 Unknown5 = BitConverter.ToUInt32(buffer, 0);
-                    Console.WriteLine("Unknown5: {0,8:X8} {1,8:X8} {2,8:X8} {3,8:X8} {4,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4, Unknown5);
+                    //Console.WriteLine("Unknown5: {0,8:X8} {1,8:X8} {2,8:X8} {3,8:X8} {4,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4, Unknown5);
+                    DataSet5.Add(new DataSet5Item()
+                    {
+                        Unknown1 = Unknown1,
+                        Unknown2 = Unknown2,
+                        Unknown3 = Unknown3,
+                        Unknown4 = Unknown4,
+                        Unknown5 = Unknown5
+                    });
                 }
             }
             if ((ToggleInputs1 & b01000000) == b01000000)
             {
-                for (int x = 0; x < 3; x++)
+                //for (int x = 0; x < 3; x++)
+                //{
+                //    data.Read(buffer, 0, 4); UInt32 Unknown = BitConverter.ToUInt32(buffer, 0);
+                //    Console.WriteLine("Unknown6: {0,8:X8}", Unknown);
+                //}
+                data.Read(buffer, 0, 4); float Unknown1 = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float Unknown2 = BitConverter.ToSingle(buffer, 0);
+                data.Read(buffer, 0, 4); float Unknown3 = BitConverter.ToSingle(buffer, 0);
+                DataSet6 = new DataSet6Item()
                 {
-                    data.Read(buffer, 0, 4); UInt32 Unknown = BitConverter.ToUInt32(buffer, 0);
-                    Console.WriteLine("Unknown6: {0,8:X8}", Unknown);
-                }
+                    Unknown1 = Unknown1,
+                    Unknown2 = Unknown2,
+                    Unknown3 = Unknown3
+                };
             }
             if ((ToggleInputs1 & b10000000) == b10000000)
             {
+                DataSet7 = new List<DataSet7Item>();
+
                 data.Read(buffer, 0, 4); UInt32 Counter = BitConverter.ToUInt32(buffer, 0);
-                Console.WriteLine("Count7: {0}", Counter);
+                //Console.WriteLine("Count7: {0}", Counter);
                 for (int x = 0; x < Counter; x++)
                 {
                     data.Read(buffer, 0, 4); UInt32 Unknown1 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown2 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown3 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown4 = BitConverter.ToUInt32(buffer, 0);
-                    Console.WriteLine("Unknown7: {0,8:X8} {1,8:X8} {2,8:X8} {3,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4);
+                    data.Read(buffer, 0, 4); float Unknown2 = BitConverter.ToSingle(buffer, 0);
+                    data.Read(buffer, 0, 4); float Unknown3 = BitConverter.ToSingle(buffer, 0);
+                    data.Read(buffer, 0, 4); float Unknown4 = BitConverter.ToSingle(buffer, 0);
+                    //Console.WriteLine("Unknown7: {0,8:X8} {1,8:X8} {2,8:X8} {3,8:X8}", Unknown1, Unknown2, Unknown3, Unknown4);
+                    DataSet7.Add(new DataSet7Item()
+                    {
+                        Unknown1 = Unknown1,
+                        Unknown2 = Unknown2,
+                        Unknown3 = Unknown3,
+                        Unknown4 = Unknown4
+                    });
                 }
             }
 
@@ -1121,17 +1404,25 @@ namespace DotHackGUCCS
             if ((ToggleInputs2 & b00000010) == b00000010)
             {
                 data.Read(buffer, 0, 4); UInt32 Counter = BitConverter.ToUInt32(buffer, 0);
-                Console.WriteLine("Unknown9: {0}", Counter);
+                //Console.WriteLine("Unknown9: {0}", Counter);
+                DataSet9 = Counter;
             }
             if ((ToggleInputs2 & b00000100) == b00000100)
             {
+                DataSetA = new List<DataSetAItem>();
+
                 data.Read(buffer, 0, 4); UInt32 Counter = BitConverter.ToUInt32(buffer, 0);
-                Console.WriteLine("CountA: {0}", Counter);
+                //Console.WriteLine("CountA: {0}", Counter);
                 for (int x = 0; x < Counter; x++)
                 {
                     data.Read(buffer, 0, 4); UInt32 Unknown1 = BitConverter.ToUInt32(buffer, 0);
-                    data.Read(buffer, 0, 4); UInt32 Unknown2 = BitConverter.ToUInt32(buffer, 0);
-                    Console.WriteLine("UnknownA: {0,8:X8} {1,8:X8}", Unknown1, Unknown2);
+                    data.Read(buffer, 0, 4); float Unknown2 = BitConverter.ToSingle(buffer, 0);
+                    //Console.WriteLine("UnknownA: {0,8:X8} {1,8:X8}", Unknown1, Unknown2);
+                    DataSetA.Add(new DataSetAItem()
+                    {
+                        Unknown1 = Unknown1,
+                        Unknown2 = Unknown2
+                    });
                 }
             }
             if ((ToggleInputs2 & b00001000) == b00001000)
@@ -1155,7 +1446,7 @@ namespace DotHackGUCCS
                 throw new Exception(string.Format("UnknownF CCCC0102 Block Type {0,8:X8}", Marker));
             }
 
-            Console.WriteLine();
+            //Console.WriteLine();
         }
     }
 
@@ -1266,54 +1557,58 @@ namespace DotHackGUCCS
 
         public Image GetImage(Color[] pallet = null)
         {
-            Color[] palletUse;
-
-            int ppb = Height * Width / RawImageData.Length;
-
-            if (pallet != null)
+            if (RawImageData.Length > 0)
             {
-                if (ppb == 1 && pallet.Length != 256) return null;
-                if (ppb == 2 && pallet.Length != 16) return null;
-                palletUse = pallet;
-            }
-            else
-            {
-                if (ppb == 1)
+                Color[] palletUse;
+
+                int ppb = Height * Width / RawImageData.Length;
+
+                if (pallet != null)
                 {
-                    palletUse = new Color[256];
-                    for (int x = 0; x < 256; x++) palletUse[x] = Color.FromArgb(x, x, x);
-                }
-                else if (ppb == 2)
-                {
-                    palletUse = new Color[16];
-                    for (int x = 0; x < 16; x++) palletUse[x] = Color.FromArgb((x << 4) + x, (x << 4) + x, (x << 4) + x);
+                    if (ppb == 1 && pallet.Length != 256) return null;
+                    if (ppb == 2 && pallet.Length != 16) return null;
+                    palletUse = pallet;
                 }
                 else
                 {
-                    return null;
+                    if (ppb == 1)
+                    {
+                        palletUse = new Color[256];
+                        for (int x = 0; x < 256; x++) palletUse[x] = Color.FromArgb(x, x, x);
+                    }
+                    else if (ppb == 2)
+                    {
+                        palletUse = new Color[16];
+                        for (int x = 0; x < 16; x++) palletUse[x] = Color.FromArgb((x << 4) + x, (x << 4) + x, (x << 4) + x);
+                    }
+                    else
+                    {
+                        return null;
+                    }
                 }
-            }
 
-            Bitmap output = new Bitmap(Width, Height);
-            for (int x = 0; x < RawImageData.Length; x++)
-            {
-                byte col = RawImageData[x];
-
-                if (ppb == 2)
+                Bitmap output = new Bitmap(Width, Height);
+                for (int x = 0; x < RawImageData.Length; x++)
                 {
-                    byte P1 = (byte)(col & 0x0f);
-                    byte P2 = (byte)((col & 0xf0) >> 4);
+                    byte col = RawImageData[x];
 
-                    output.SetPixel((x * 2) % Width, Height - 1 - ((x * 2) / Width), palletUse[P1]);
-                    output.SetPixel(((x * 2) + 1) % Width, Height - 1 - (((x * 2) + 1) / Width), palletUse[P2]);
+                    if (ppb == 2)
+                    {
+                        byte P1 = (byte)(col & 0x0f);
+                        byte P2 = (byte)((col & 0xf0) >> 4);
+
+                        output.SetPixel((x * 2) % Width, Height - 1 - ((x * 2) / Width), palletUse[P1]);
+                        output.SetPixel(((x * 2) + 1) % Width, Height - 1 - (((x * 2) + 1) / Width), palletUse[P2]);
+                    }
+                    else
+                    {
+                        output.SetPixel(x % Width, Height - 1 - (x / Width), palletUse[col]);
+                    }
                 }
-                else
-                {
-                    output.SetPixel(x % Width, Height - 1 - (x / Width), palletUse[col]);
-                }
+
+                return output;
             }
-
-            return output;
+            return null;
         }
     }
 
@@ -1369,9 +1664,9 @@ namespace DotHackGUCCS
         }
     }
 
-    public class CCSCCCC0700Block : CCSBlock
+    public class CCSAnimationBlock : CCSBlock
     {
-        public override CCSBlockType BlockType { get { return CCSBlockType.CCCC0700; } }
+        public override CCSBlockType BlockType { get { return CCSBlockType.Animation; } }
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
@@ -1379,14 +1674,14 @@ namespace DotHackGUCCS
 
         public UInt32 Unknown1 { get; private set; } // Always 0x 00000001?
         public UInt32 Unknown2 { get; private set; } // Always 0x 00000000?
-        public UInt32 Unknown3 { get; private set; } // Always 0x 00000000?
-        public UInt32 Unknown4 { get; private set; } // Always 0x 00000000?
+        //public UInt32 Unknown3 { get; private set; } // Always 0x 00000000?
+        //public UInt32 Unknown4 { get; private set; } // Always 0x 00000000?
 
-        public CCSCCCC0700Block(Stream data)
+        public CCSAnimationBlock(Stream data)
         {
             byte[] buffer = new byte[4];
 
-            Console.WriteLine("[{0,8:X8}]", data.Position);
+            //Console.WriteLine("[{0,8:X8}]", data.Position);
 
             data.Read(buffer, 0, 4); _BlockSize = BitConverter.ToUInt32(buffer, 0);
             long nextBlock = data.Position + (_BlockSize * 4);// +8;
@@ -1411,6 +1706,11 @@ namespace DotHackGUCCS
             //data.Seek(nextBlock, SeekOrigin.Begin);
 
             //Console.WriteLine();
+        }
+
+        public override string GetNodeName(CCSFileNamesBlock FileNamesBlock)
+        {
+            return FileNamesBlock.BakedFiles[BakedFileIndex].Name;
         }
     }
 
@@ -1465,6 +1765,40 @@ namespace DotHackGUCCS
             }
         }
 
+        public class Mesh
+        {
+            public UInt32 UnknownA1;
+            public UInt32 MaterialIndex;
+            public UInt32 VertCount;
+
+            public List<Vertex> Verts { get; private set; }
+            public List<Normal> Norms { get; private set; }
+            public List<RGBA> RGBAs { get; private set; }
+            public List<UV> UVs { get; private set; }
+
+            public Mesh()
+            {
+                Verts = new List<Vertex>();
+                Norms = new List<Normal>();
+                RGBAs = new List<RGBA>();
+                UVs = new List<UV>();
+            }
+        }
+
+        public class ShadowMesh
+        {
+            public List<Vertex> Verts { get; private set; }
+            public List<UInt32> Faces { get; private set; }
+            public uint VertexCount { get; set; }
+            public uint FaceCount { get; set; }
+
+            public ShadowMesh()
+            {
+                Verts = new List<Vertex>();
+                Faces = new List<UInt32>();
+            }
+        }
+
         public override CCSBlockType BlockType { get { return CCSBlockType.Mesh; } }
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
@@ -1472,20 +1806,15 @@ namespace DotHackGUCCS
         public UInt32 SelfIndex;
 
         public UInt32 Unknown1;
-        public UInt32 Unknown2;
+        public UInt32 Unknown2A;
+        public UInt32 SubmeshCount;
         public UInt32 Unknown3;
         public UInt32 Unknown4;
         public UInt32 Unknown5;
         public float UnknownFloat;
 
-        public UInt32 UnknownA1;
-        public UInt32 MaterialIndex;
-        public UInt32 VertCount;
-
-        public List<Vertex> Verts { get; private set; }
-        public List<Normal> Norms { get; private set; }
-        public List<RGBA> RGBAs { get; private set; }
-        public List<UV> UVs { get; private set; }
+        public List<Mesh> Meshes;
+        public List<ShadowMesh> shadowMesh;
 
         public byte[] RawData;// temporary
 
@@ -1493,10 +1822,8 @@ namespace DotHackGUCCS
 
         public CCSMeshBlock(Stream data)
         {
-            Verts = new List<Vertex>();
-            Norms = new List<Normal>();
-            RGBAs = new List<RGBA>();
-            UVs = new List<UV>();
+            Meshes = new List<Mesh>();
+            shadowMesh = new List<ShadowMesh>();
 
             ExtraData = new List<byte>();
 
@@ -1517,8 +1844,12 @@ namespace DotHackGUCCS
                 data.Read(buffer, 0, 4); Unknown1 = BitConverter.ToUInt32(buffer, 0);
                 //Console.WriteLine("Unknown1: {0,8:X8} (if 0, end early)", Unknown1);
 
-                data.Read(buffer, 0, 4); Unknown2 = BitConverter.ToUInt32(buffer, 0);
+                //data.Read(buffer, 0, 4); Unknown2 = BitConverter.ToUInt32(buffer, 0);
                 //Console.WriteLine("Unknown2: {0,8:X8}", Unknown2);
+                //int Unknown2C = buffer[2];
+
+                data.Read(buffer, 0, 2); Unknown2A = BitConverter.ToUInt16(buffer, 0);
+                data.Read(buffer, 0, 2); SubmeshCount = BitConverter.ToUInt16(buffer, 0);
 
                 data.Read(buffer, 0, 4); Unknown3 = BitConverter.ToUInt32(buffer, 0);
                 //Console.WriteLine("Unknown3: {0,8:X8}", Unknown3);
@@ -1538,24 +1869,32 @@ namespace DotHackGUCCS
                 float UnknownFloat = BitConverter.ToSingle(buffer, 0);
                 //Console.WriteLine("UnknownFloat: {0,8:X8} {1}", UnknownFloatA, UnknownFloatB.ToString("R", CultureInfo.InvariantCulture));
 
-                if (Unknown1 != 0)
+                long TmpPos = data.Position;
+
+                //if (Unknown1 != 0)
+                //try
+                if(Unknown2A == 0x0000 || Unknown2A == 0x0001) // normal mesh
                 {
-                    if (Unknown5D == 0)
+                    //if (Unknown5D == 0)
+                    //if(Unknown2B == 0x0001 || Unknown2B == 0x0002)
+                    for (int SubmeshCounter = 0; SubmeshCounter < SubmeshCount; SubmeshCounter++)
                     {
-                        data.Read(buffer, 0, 4); UnknownA1 = BitConverter.ToUInt32(buffer, 0);
+                        Mesh meshData = new Mesh();
+
+                        data.Read(buffer, 0, 4); meshData.UnknownA1 = BitConverter.ToUInt32(buffer, 0);
                         //Console.WriteLine("UnknownA1: {0,8:X8}", UnknownA1);
 
-                        data.Read(buffer, 0, 4); MaterialIndex = BitConverter.ToUInt32(buffer, 0);
+                        data.Read(buffer, 0, 4); meshData.MaterialIndex = BitConverter.ToUInt32(buffer, 0);
                         //Console.Write("Material Index: {0}", MaterialIndex);
                         //if (nodeNames != null && nodeNames.Length > MaterialIndex) Console.Write(" \"{0}\"", nodeNames[MaterialIndex]);
                         //Console.WriteLine();
 
                         //ObjModel model = new ObjModel(nodeNames[SelfIndex]);
 
-                        data.Read(buffer, 0, 4); VertCount = BitConverter.ToUInt32(buffer, 0);
+                        data.Read(buffer, 0, 4); meshData.VertCount = BitConverter.ToUInt32(buffer, 0);
                         //Console.WriteLine("Count: {0} ({0,8:X8})", Count);
 
-                        for (int x = 0; x < VertCount; x++)
+                        for (int x = 0; x < meshData.VertCount; x++)
                         {
                             data.Read(buffer, 0, 2); Int16 h1 = BitConverter.ToInt16(buffer, 0);
                             data.Read(buffer, 0, 2); Int16 h2 = BitConverter.ToInt16(buffer, 0);
@@ -1563,14 +1902,18 @@ namespace DotHackGUCCS
                             //Console.WriteLine("XYZ [{0}]: {1} {2} {3}", x, h1, h2, h3);
 
                             //model.vertices.Add(new ObjModel.Vector3() { x = h1 * 0.1f, y = h2 * 0.1f, z = h3 * 0.1f });
-                            Verts.Add(new Vertex() { x = h1, y = h2, z = h3 });
+                            meshData.Verts.Add(new Vertex() { x = h1, y = h2, z = h3 });
 
                             if (data.Position >= data.Length) throw new Exception("Read Too Far");
                         }
-                        data.Seek((4 - 1) / 4 * 4, SeekOrigin.Current); // Align
+                        //data.Seek((4 - 1) / 4 * 4, SeekOrigin.Current); // Align
 
-                        UInt32[] normData = new UInt32[VertCount];
-                        for (int x = 0; x < VertCount; x++)
+                        data.Seek(((4 - (data.Position % 4)) % 4), SeekOrigin.Current); // Align
+
+
+
+                        UInt32[] normData = new UInt32[meshData.VertCount];
+                        for (int x = 0; x < meshData.VertCount; x++)
                         {
                             data.Read(buffer, 0, 4); UInt32 Unknown = BitConverter.ToUInt32(buffer, 0);
 
@@ -1583,7 +1926,7 @@ namespace DotHackGUCCS
                             //    z = (sbyte)buffer[2] / 64.0f
                             //});
 
-                            Norms.Add(new Normal() { x = (sbyte)buffer[0], y = (sbyte)buffer[1], z = (sbyte)buffer[2], w = buffer[3] });
+                            meshData.Norms.Add(new Normal() { x = (sbyte)buffer[0], y = (sbyte)buffer[1], z = (sbyte)buffer[2], w = buffer[3] });
 
                             //Console.WriteLine("Normal [{0}]: {1} {2} {3} {4}",
                             //    x,
@@ -1593,30 +1936,27 @@ namespace DotHackGUCCS
                             //    buffer[3] == 0x01 ? "No Draw, Force Odd" : buffer[3] == 0x02 ? "No Draw, Force Even" : string.Empty);
                         }
 
-                        for (int x = 0; x < VertCount; x++)
+                        for (int x = 0; x < meshData.VertCount; x++)
                         {
                             data.Read(buffer, 0, 4);
 
-                            RGBAs.Add(new RGBA() { r = buffer[0], g = buffer[1], b = buffer[2], a = buffer[3] });
+                            meshData.RGBAs.Add(new RGBA() { r = buffer[0], g = buffer[1], b = buffer[2], a = buffer[3] });
 
                             //Console.WriteLine("RGBA [{0}]: {1,2:X2} {2,2:X2} {3,2:X2} {4,2:X2}", x, buffer[0], buffer[1], buffer[2], buffer[3]);
                         }
 
-                        for (int x = 0; x < VertCount; x++)
+                        for (int x = 0; x < meshData.VertCount; x++)
                         {
                             data.Read(buffer, 0, 2); Int16 U = BitConverter.ToInt16(buffer, 0);
                             data.Read(buffer, 0, 2); Int16 V = BitConverter.ToInt16(buffer, 0);
                             //Console.WriteLine("UV [{0}]: {1} {2}", x, U, V);
 
-                            UVs.Add(new UV() { u = U, v = V });
+                            meshData.UVs.Add(new UV() { u = U, v = V });
 
                             //model.uv.Add(new ObjModel.Vector3() { x = U / 255.0f, y = V / 255.0f });
                         }
 
-                        while ((data.Position < endPosition) && (data.Read(buffer, 0, 1) > 0))
-                        {
-                            ExtraData.Add(buffer[0]);
-                        }
+                        Meshes.Add(meshData);
 
                         {
                             //string material = nodeNames[MaterialIndex];
@@ -1655,13 +1995,23 @@ namespace DotHackGUCCS
                             //model.faces.Add(material, verts);
                         }
                     }
-                    else
-                    {
-                        RawData = new byte[(_BlockSize - 7) * 4];
+                    //else
+                    //{
+                    //    RawData = new byte[(_BlockSize - 7) * 4];
+                    //
+                    //    data.Seek(startPosition + (7 * 4), SeekOrigin.Begin);
+                    //    data.Read(RawData, 0, RawData.Length);
+                    //}
 
-                        data.Seek(startPosition + (7 * 4), SeekOrigin.Begin);
-                        data.Read(RawData, 0, RawData.Length);
-                    }
+
+                    //else
+                    //{
+                    //    RawData = new byte[(_BlockSize - 7) * 4];
+                    //
+                    //    data.Seek(startPosition + (7 * 4), SeekOrigin.Begin);
+                    //    data.Read(RawData, 0, RawData.Length);
+                    //}
+
                     /*else if (Unknown5D == 0x80)
                     {
                         data.Read(buffer, 0, 4); UInt32 Count1 = BitConverter.ToUInt32(buffer, 0);
@@ -1701,17 +2051,117 @@ namespace DotHackGUCCS
                         }
                     }*/
                 }
-                else
+                if (Unknown2A == 0x0008)
                 {
-                    RawData = new byte[(_BlockSize - 7) * 4];
+                    for (int SubmeshCounter = 0; SubmeshCounter < SubmeshCount; SubmeshCounter++)
+                    {
+                        ShadowMesh meshData = new ShadowMesh();
 
-                    data.Seek(startPosition + (7 * 4), SeekOrigin.Begin);
-                    data.Read(RawData, 0, RawData.Length);
+                        data.Read(buffer, 0, 4); meshData.VertexCount = BitConverter.ToUInt32(buffer, 0);
+                        data.Read(buffer, 0, 4); meshData.FaceCount = BitConverter.ToUInt32(buffer, 0);
+
+                        for (int x = 0; x < meshData.VertexCount; x++)
+                        {
+                            data.Read(buffer, 0, 2); Int16 h1 = BitConverter.ToInt16(buffer, 0);
+                            data.Read(buffer, 0, 2); Int16 h2 = BitConverter.ToInt16(buffer, 0);
+                            data.Read(buffer, 0, 2); Int16 h3 = BitConverter.ToInt16(buffer, 0);
+                            //Console.WriteLine("XYZ [{0}]: {1} {2} {3}", x, h1, h2, h3);
+
+                            //model.vertices.Add(new ObjModel.Vector3() { x = h1 * 0.1f, y = h2 * 0.1f, z = h3 * 0.1f });
+                            meshData.Verts.Add(new Vertex() { x = h1, y = h2, z = h3 });
+
+                            if (data.Position >= data.Length) throw new Exception("Read Too Far");
+                        }
+                        data.Seek(((4 - (data.Position % 4)) % 4), SeekOrigin.Current); // Align
+
+                        for (int x = 0; x < meshData.FaceCount; x++)
+                        {
+                            data.Read(buffer, 0, 4); UInt32 h1 = BitConverter.ToUInt32(buffer, 0);
+                            //Console.WriteLine("XYZ [{0}]: {1} {2} {3}", x, h1, h2, h3);
+
+                            //model.vertices.Add(new ObjModel.Vector3() { x = h1 * 0.1f, y = h2 * 0.1f, z = h3 * 0.1f });
+                            meshData.Faces.Add(h1);
+
+                            if (data.Position >= data.Length) throw new Exception("Read Too Far");
+                        }
+
+                        shadowMesh.Add(meshData);
+                    }
                 }
+                if (Unknown2A == 0x0201)
+                {
+                    for (int SubmeshCounter = 0; SubmeshCounter < SubmeshCount; SubmeshCounter++)
+                    {
+                        Mesh meshData = new Mesh();
+
+                        data.Read(buffer, 0, 4); meshData.UnknownA1 = BitConverter.ToUInt32(buffer, 0);
+                        data.Read(buffer, 0, 4); meshData.MaterialIndex = BitConverter.ToUInt32(buffer, 0);
+                        data.Read(buffer, 0, 4); meshData.VertCount = BitConverter.ToUInt32(buffer, 0);
+
+                        for (int x = 0; x < meshData.VertCount; x++)
+                        {
+                            data.Read(buffer, 0, 2); Int16 h1 = BitConverter.ToInt16(buffer, 0);
+                            data.Read(buffer, 0, 2); Int16 h2 = BitConverter.ToInt16(buffer, 0);
+                            data.Read(buffer, 0, 2); Int16 h3 = BitConverter.ToInt16(buffer, 0);
+
+                            meshData.Verts.Add(new Vertex() { x = h1, y = h2, z = h3 });
+
+                            if (data.Position >= data.Length) throw new Exception("Read Too Far");
+                        }
+
+                        data.Seek(((4 - (data.Position % 4)) % 4), SeekOrigin.Current); // Align
+
+                        UInt32[] normData = new UInt32[meshData.VertCount];
+                        for (int x = 0; x < meshData.VertCount; x++)
+                        {
+                            data.Read(buffer, 0, 4); UInt32 Unknown = BitConverter.ToUInt32(buffer, 0);
+
+                            normData[x] = Unknown;
+
+                            meshData.Norms.Add(new Normal() { x = (sbyte)buffer[0], y = (sbyte)buffer[1], z = (sbyte)buffer[2], w = buffer[3] });
+                        }
+
+                        for (int x = 0; x < meshData.VertCount; x++)
+                        {
+                            //data.Read(buffer, 0, 4);
+
+                            //meshData.RGBAs.Add(new RGBA() { r = buffer[0], g = buffer[1], b = buffer[2], a = buffer[3] });
+
+                            meshData.RGBAs.Add(new RGBA() { r = 255, g = 255, b = 255, a = 128 });
+                        }
+
+                        for (int x = 0; x < meshData.VertCount; x++)
+                        {
+                            data.Read(buffer, 0, 2); Int16 U = BitConverter.ToInt16(buffer, 0);
+                            data.Read(buffer, 0, 2); Int16 V = BitConverter.ToInt16(buffer, 0);
+
+                            meshData.UVs.Add(new UV() { u = U, v = V });
+                        }
+
+                        Meshes.Add(meshData);
+                    }
+                }
+
+                //catch(Exception ex) {
+                //    data.Seek(TmpPos, SeekOrigin.Begin);
+                //}
+                //else
+                //{
+                //    RawData = new byte[(_BlockSize - 7) * 4];
+                //
+                //    data.Seek(startPosition + (7 * 4), SeekOrigin.Begin);
+                //    data.Read(RawData, 0, RawData.Length);
+                //}
 
                 //if (data.Position > endPosition) throw new Exception("Overrun");
                 //if (data.Position < endPosition) throw new Exception("Underun");
             }
+
+            while ((data.Position < endPosition) && (data.Read(buffer, 0, 1) > 0))
+            {
+                ExtraData.Add(buffer[0]);
+            }
+
             //catch (Exception ex)
             //{
             //    data.Seek(endPosition, SeekOrigin.Begin);
@@ -1722,7 +2172,12 @@ namespace DotHackGUCCS
             //data.Seek(startPosition - 8, SeekOrigin.Begin);
             //data.Read(RawData, 0, (int)((_BlockSize + 2) * 4));
 
-            Console.WriteLine();
+            //Console.WriteLine();
+        }
+
+        public override string GetNodeName(CCSFileNamesBlock FileNamesBlock)
+        {
+            return FileNamesBlock.BakedFiles[SelfIndex].Name;
         }
     }
 
@@ -1747,6 +2202,11 @@ namespace DotHackGUCCS
             data.Read(buffer, 0, 4); ParentBakedFileIndex = BitConverter.ToUInt32(buffer, 0);
             data.Read(buffer, 0, 4); BakedFileIndex2 = BitConverter.ToUInt32(buffer, 0);
         }
+
+        public override string GetNodeName(CCSFileNamesBlock FileNamesBlock)
+        {
+            return FileNamesBlock.BakedFiles[BakedFileIndex].Name;
+        }
     }
 
     public class CCSCCCC2000Block : CCSBlock
@@ -1757,21 +2217,30 @@ namespace DotHackGUCCS
 
         public UInt32 BakedFileIndex { get; private set; }
 
+        public List<byte> ExtraData;
+
         public CCSCCCC2000Block(Stream data)
         {
+            ExtraData = new List<byte>();
+
             byte[] buffer = new byte[4];
 
             data.Read(buffer, 0, 4); _BlockSize = BitConverter.ToUInt32(buffer, 0);
             long nextBlock = data.Position + (_BlockSize * 4);// +8;
             data.Read(buffer, 0, 4); BakedFileIndex = BitConverter.ToUInt32(buffer, 0);
 
-            Console.WriteLine("CCCC2000 Block of unknown purpose");
-            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //Console.WriteLine("CCCC2000 Block of unknown purpose");
+            //while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //{
+            //    UInt32 BlockID = BitConverter.ToUInt32(buffer, 0);
+            //    Console.WriteLine("\t{0,8:X8}", BlockID);
+            //    //CCSBlock newBlock = CCSBlock.MakeBlock(BlockID, data);
+            //    //BlockChain.Add(newBlock);
+            //}
+
+            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 1) > 0))
             {
-                UInt32 BlockID = BitConverter.ToUInt32(buffer, 0);
-                Console.WriteLine("\t{0,8:X8}", BlockID);
-                //CCSBlock newBlock = CCSBlock.MakeBlock(BlockID, data);
-                //BlockChain.Add(newBlock);
+                ExtraData.Add(buffer[0]);
             }
 
             //data.Read(buffer, 0, 4); UInt32 Unknown1 = BitConverter.ToUInt32(buffer, 0);
@@ -1787,6 +2256,11 @@ namespace DotHackGUCCS
             //Console.WriteLine("Always 0x 00000000: {0,8:X8}", Unknown4);
 
             Console.WriteLine();
+        }
+
+        public override string GetNodeName(CCSFileNamesBlock FileNamesBlock)
+        {
+            return FileNamesBlock.BakedFiles[BakedFileIndex].Name;
         }
     }
     
@@ -2156,11 +2630,17 @@ namespace DotHackGUCCS
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
+        public UInt32 SelfIndex;
+
+        public List<byte> ExtraData;
+
         public CCSCCCC1F00Block(Stream data)
         {
+            ExtraData = new List<byte>();
+
             byte[] buffer = new byte[4];
 
-            //Console.WriteLine("CCCCFF01 Block // unknown");
+            //Console.WriteLine("CCCC1F00 Block // unknown");
 
             data.Read(buffer, 0, 4); _BlockSize = BitConverter.ToUInt32(buffer, 0);
             //Console.WriteLine("Size of following block data: {0} int32s", _BlockSize);
@@ -2170,15 +2650,22 @@ namespace DotHackGUCCS
             //data.Read(buffer, 0, 4); UInt32 SelfIndex = BitConverter.ToUInt32(buffer, 0);
             //Console.WriteLine("Node Index: {0}", SelfIndex);
 
-            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            data.Read(buffer, 0, 4); SelfIndex = BitConverter.ToUInt32(buffer, 0);
+
+            //while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            //{
+            //    UInt32 raw = BitConverter.ToUInt32(buffer, 0);
+            //    //Console.WriteLine("\t{0,8:X8}", BlockID);
+            //}
+
+            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 1) > 0))
             {
-                UInt32 raw = BitConverter.ToUInt32(buffer, 0);
-                //Console.WriteLine("\t{0,8:X8}", BlockID);
+                ExtraData.Add(buffer[0]);
             }
 
             //Console.WriteLine();
 
-//Data Sample
+            //Data Sample
             /*
             00 1F CC CC block
             F1 00 00 00 size
@@ -2310,6 +2797,11 @@ namespace DotHackGUCCS
                                     01 00 00 00 00 01 02 03 00 41 00 2E 80 00 80 41
             */
         }
+
+        public override string GetNodeName(CCSFileNamesBlock FileNamesBlock)
+        {
+            return FileNamesBlock.BakedFiles[SelfIndex].Name;
+        }
     }
 
     public class CCSCCCC1901Block : CCSBlock
@@ -2378,8 +2870,14 @@ namespace DotHackGUCCS
         public override long BlockSize { get { return _BlockSize; } }
         private long _BlockSize;
 
+        //public UInt32 EndMarker;
+
+        public List<byte> ExtraData;
+
         public CCSCCCCFF01Block(Stream data)
         {
+            ExtraData = new List<byte>();
+
             byte[] buffer = new byte[4];
 
             //Console.WriteLine("CCCCFF01 Block // unknown");
@@ -2389,16 +2887,12 @@ namespace DotHackGUCCS
 
             long nextBlock = data.Position + (_BlockSize * 4);// +8;
 
-            //data.Read(buffer, 0, 4); UInt32 SelfIndex = BitConverter.ToUInt32(buffer, 0);
-            //Console.WriteLine("Node Index: {0}", SelfIndex);
-
-            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 4) > 0))
+            while ((data.Position < nextBlock) && (data.Read(buffer, 0, 1) > 0))
             {
-                UInt32 raw = BitConverter.ToUInt32(buffer, 0);
-                //Console.WriteLine("\t{0,8:X8}", BlockID);
+                ExtraData.Add(buffer[0]);
             }
 
-            //Console.WriteLine();
+            //data.Read(buffer, 0, 4); EndMarker = BitConverter.ToUInt32(buffer, 0);
         }
     }
 }
