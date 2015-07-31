@@ -4,4 +4,4 @@ Password was found in SLUS_212.58's raw strings (think of hacking like in the ga
 
 DATA.CVM decrypted using password with cvm_tool (ROFS tool v0.02 by roxfan (c) 2010) and converted to ISO
 Data extracted from ISO
-Individual files un-gzipped
+Individual files un-gzipped (unzipping will be part of the tool when it's finished)
